@@ -540,57 +540,19 @@ TRITONBACKEND_ModelInstanceExecute(
   // backend_common.h that assist in this management of response
   // objects.
 
-  // The backend could iterate over the 'requests' and process each
-  // one separately. But for performance reasons it is usually
-  // preferred to create batched input tensors that are processed
-  // simultaneously. This is especially true for devices like GPUs
-  // that are capable of exploiting the large amount parallelism
-  // exposed by larger data sets.
-  //
-  // The backend utilities provide a "collector" to facilitate this
-  // batching process. The 'collector's ProcessTensor function will
-  // combine a tensor's value from each request in the batch into a
-  // single contiguous buffer. The buffer can be provided by the
-  // backend or 'collector' can create and manage it. In this backend,
-  // there is not a specific buffer into which the batch should be
-  // created, so use ProcessTensor arguments that cause collector to
-  // manage it. ProcessTensor does NOT support TRITONSERVER_TYPE_BYTES
-  // data type.
+  // Projection logic starts here
+  // Process all requests one after the other
+  for (uint32_t r = 0; r < request_count; ++r) {
+    uint32_t input_count;
+    TRITONBACKEND_RequestInputCount(requests[i], input_count);
 
-  BackendInputCollector collector(
-      requests, request_count, &responses, model_state->TritonMemoryManager(),
-      false /* pinned_enabled */, nullptr /* stream*/);
+    for (uint32_t i = 0; i < input_count; ++i) {
+      const char* input_name;
+      TRITONBACKEND_RequestInputName(requests[i], i, &input_name);
 
-  // To instruct ProcessTensor to "gather" the entire batch of input
-  // tensors into a single contiguous buffer in CPU memory, set the
-  // "allowed input types" to be the CPU ones (see tritonserver.h in
-  // the triton-inference-server/core repo for allowed memory types).
-  std::vector<std::pair<TRITONSERVER_MemoryType, int64_t>> allowed_input_types =
-      {{TRITONSERVER_MEMORY_CPU_PINNED, 0}, {TRITONSERVER_MEMORY_CPU, 0}};
-
-  const char* input_buffer;
-  size_t input_buffer_byte_size;
-  TRITONSERVER_MemoryType input_buffer_memory_type;
-  int64_t input_buffer_memory_type_id;
-
-  RESPOND_ALL_AND_SET_NULL_IF_ERROR(
-      responses, request_count,
-      collector.ProcessTensor(
-          model_state->InputTensorName().c_str(), nullptr /* existing_buffer */,
-          0 /* existing_buffer_byte_size */, allowed_input_types, &input_buffer,
-          &input_buffer_byte_size, &input_buffer_memory_type,
-          &input_buffer_memory_type_id));
-
-  // Finalize the collector. If 'true' is returned, 'input_buffer'
-  // will not be valid until the backend synchronizes the CUDA
-  // stream or event that was used when creating the collector. For
-  // this backend, GPU is not supported and so no CUDA sync should
-  // be needed; so if 'true' is returned simply log an error.
-  const bool need_cuda_input_sync = collector.Finalize();
-  if (need_cuda_input_sync) {
-    LOG_MESSAGE(
-        TRITONSERVER_LOG_ERROR,
-        "'recommended' backend: unexpected CUDA sync required by collector");
+      TRITONBACKEND_Input* input_tensor;
+      TRITONBACKEND_RequestInput(requests[i], input_name, input_tensor);
+    }
   }
 
   // 'input_buffer' contains the batched input tensor. The backend can
@@ -602,70 +564,8 @@ TRITONBACKEND_ModelInstanceExecute(
   uint64_t compute_start_ns = 0;
   SET_TIMESTAMP(compute_start_ns);
 
-  LOG_MESSAGE(
-      TRITONSERVER_LOG_INFO,
-      (std::string("model ") + model_state->Name() + ": requests in batch " +
-       std::to_string(request_count))
-          .c_str());
-  std::string tstr;
-  IGNORE_ERROR(BufferAsTypedString(
-      tstr, input_buffer, input_buffer_byte_size,
-      model_state->TensorDataType()));
-  LOG_MESSAGE(
-      TRITONSERVER_LOG_INFO,
-      (std::string("batched " + model_state->InputTensorName() + " value: ") +
-       tstr)
-          .c_str());
-
-  const char* output_buffer = input_buffer;
-  TRITONSERVER_MemoryType output_buffer_memory_type = input_buffer_memory_type;
-  int64_t output_buffer_memory_type_id = input_buffer_memory_type_id;
-
   uint64_t compute_end_ns = 0;
   SET_TIMESTAMP(compute_end_ns);
-
-  bool supports_first_dim_batching;
-  RESPOND_ALL_AND_SET_NULL_IF_ERROR(
-      responses, request_count,
-      model_state->SupportsFirstDimBatching(&supports_first_dim_batching));
-
-  std::vector<int64_t> tensor_shape;
-  RESPOND_ALL_AND_SET_NULL_IF_ERROR(
-      responses, request_count, model_state->TensorShape(tensor_shape));
-
-  // Because the output tensor values are concatenated into a single
-  // contiguous 'output_buffer', the backend must "scatter" them out
-  // to the individual response output tensors.  The backend utilities
-  // provide a "responder" to facilitate this scattering process.
-  // BackendOutputResponder does NOT support TRITONSERVER_TYPE_BYTES
-  // data type.
-
-  // The 'responders's ProcessTensor function will copy the portion of
-  // 'output_buffer' corresponding to each request's output into the
-  // response for that request.
-
-  BackendOutputResponder responder(
-      requests, request_count, &responses, model_state->TritonMemoryManager(),
-      supports_first_dim_batching, false /* pinned_enabled */,
-      nullptr /* stream*/);
-
-  responder.ProcessTensor(
-      model_state->OutputTensorName().c_str(), model_state->TensorDataType(),
-      tensor_shape, output_buffer, output_buffer_memory_type,
-      output_buffer_memory_type_id);
-
-  // Finalize the responder. If 'true' is returned, the output
-  // tensors' data will not be valid until the backend synchronizes
-  // the CUDA stream or event that was used when creating the
-  // responder. For this backend, GPU is not supported and so no CUDA
-  // sync should be needed; so if 'true' is returned simply log an
-  // error.
-  const bool need_cuda_output_sync = responder.Finalize();
-  if (need_cuda_output_sync) {
-    LOG_MESSAGE(
-        TRITONSERVER_LOG_ERROR,
-        "'recommended' backend: unexpected CUDA sync required by responder");
-  }
 
   // Send all the responses that haven't already been sent because of
   // an earlier error.
