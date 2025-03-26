@@ -85,11 +85,16 @@ void deserialize_inputs_to_cv(
         }
 
         // creat n-dimensional opencv mat from raw pointer
+        profile("chw_read_"+std::to_string(i), 0);
         cv::Mat bchw_mat(cv_dim, cv_shape, cv_type, static_cast<void*>(dataPointers[i]));
+        profile("chw_read_"+std::to_string(i), 1);
         cv::Mat bhwc_mat;
 
         std::vector<int> order = {0, 2, 3, 1};
+
+        profile("hwc_transpose_"+std::to_string(i), 0);
         cv::transposeND(bchw_mat, order, bhwc_mat);
+        profile("hwc_transpose_"+std::to_string(i), 1);
         deserializedDatasets.push_back(bhwc_mat);
     }
 }
