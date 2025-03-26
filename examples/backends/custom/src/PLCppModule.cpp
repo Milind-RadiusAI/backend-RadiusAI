@@ -32,9 +32,9 @@ void PLCppModule::profile(std::string name, bool status) {
     long long milliseconds_since_epoch = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 
     if(status == 0) {
-        profile_info[name].first = milliseconds_since_epoch
+        profile_info[name].first = milliseconds_since_epoch;
     } else {
-        profile_info[name].second = milliseconds_since_epoch
+        profile_info[name].second = milliseconds_since_epoch;
     }
 }
 
