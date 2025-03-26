@@ -144,7 +144,7 @@ void PLCppModule::execute(const std::vector<float*>& dataPointers, const std::ve
             cv::cuda::GpuMat(images_gpu[i].rows, images_gpu[i].cols, CV_8U, images_reformatted[i].ptr()[0]),
             cv::cuda::GpuMat(images_gpu[i].rows, images_gpu[i].cols, CV_8U, images_reformatted[i].ptr()[width]),
             cv::cuda::GpuMat(images_gpu[i].rows, images_gpu[i].cols, CV_8U, images_reformatted[i].ptr()[width * 2])
-        )
+        );
         cv::cuda::split(images_gpu[i], input_channels, streams[i]);
 
         // resize
