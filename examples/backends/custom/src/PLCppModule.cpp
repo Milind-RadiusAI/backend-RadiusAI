@@ -139,7 +139,7 @@ void PLCppModule::execute(const std::vector<float*>& dataPointers, const std::ve
         // print_shape(images_gpu[i], "images_gpu");
 
         // convert from HWC -> CHW
-        size_t width = images_gpu[i].cols * images[i].rows;
+        size_t width = images_gpu[i].cols * images_gpu[i].rows;
         std::vector<cv::cuda::GpuMat> input_channels(
             cv::cuda::GpuMat(images_gpu[i].rows, images_gpu[i].cols, CV_8U, images_reformatted[i].ptr()[0]),
             cv::cuda::GpuMat(images_gpu[i].rows, images_gpu[i].cols, CV_8U, images_reformatted[i].ptr()[width]),
