@@ -90,12 +90,12 @@ void PLCppModule::deserialize_inputs_to_cv(
         profile("chw_read_"+std::to_string(i), 1);
         cv::Mat bhwc_mat;
 
-        std::vector<int> order = {0, 2, 3, 1};
+        // std::vector<int> order = {0, 2, 3, 1};
 
-        profile("hwc_transpose_"+std::to_string(i), 0);
-        cv::transposeND(bchw_mat, order, bhwc_mat);
-        profile("hwc_transpose_"+std::to_string(i), 1);
-        deserializedDatasets.push_back(bhwc_mat);
+        // profile("hwc_transpose_"+std::to_string(i), 0);
+        // cv::transposeND(bchw_mat, order, bhwc_mat);
+        // profile("hwc_transpose_"+std::to_string(i), 1);
+        deserializedDatasets.push_back(bchw_mat);
     }
 }
 
@@ -108,6 +108,10 @@ void PLCppModule::execute(const std::vector<float*>& dataPointers, const std::ve
     int num_images = all_inputs[0].size[0] - 1;
     std::vector<cv::cuda::Stream> streams(num_images);
     std::vector<cv::cuda::GpuMat> images_gpu(num_images);
+    std::vector<cv::cuda::GpuMat> images_reformatted(num_images);
+    for(int i=0;i<num_images;i++) {
+        images_reformatted[i] = cv::cuda::GpuMat(img_h, img_w, CV_8UC3);
+    }
     std::vector<cv::cuda::GpuMat> resized_images(num_images);
     std::vector<cv::cuda::GpuMat> polymask_gpu(num_images);
     std::vector<cv::cuda::GpuMat> bg_masks_gpu(num_images);
@@ -134,8 +138,17 @@ void PLCppModule::execute(const std::vector<float*>& dataPointers, const std::ve
         images_gpu[i].upload(single_image, streams[i]);    
         // print_shape(images_gpu[i], "images_gpu");
 
+        // convert from HWC -> CHW
+        size_t width = images_gpu[i].cols * images[i].rows;
+        std::vector<cv::cuda::GpuMat> input_channels(
+            cv::cuda::GpuMat(images_gpu[i].rows, images_gpu[i].cols, CV_8U, images_reformatted[i].ptr()[0]),
+            cv::cuda::GpuMat(images_gpu[i].rows, images_gpu[i].cols, CV_8U, images_reformatted[i].ptr()[width]),
+            cv::cuda::GpuMat(images_gpu[i].rows, images_gpu[i].cols, CV_8U, images_reformatted[i].ptr()[width * 2])
+        )
+        cv::cuda::split(images_gpu[i], input_channels, streams[i]);
+
         // resize
-        cv::cuda::resize(images_gpu[i], resized_images[i], cv::Size(), 0.25, 0.25, cv::INTER_LINEAR, streams[i]);
+        cv::cuda::resize(images_reformatted[i], resized_images[i], cv::Size(), 0.25, 0.25, cv::INTER_LINEAR, streams[i]);
         // print_shape(resized_images[i], "resized_images");
 
         // print_shape(mask_gpu[i], "mask_gpu");
