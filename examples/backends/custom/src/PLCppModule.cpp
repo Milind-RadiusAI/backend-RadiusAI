@@ -59,7 +59,7 @@ std::vector<int64_t> getMatShapes(cv::Mat mat) {
     } return shapes;
 }
 
-void deserialize_inputs_to_cv(
+void PLCppModule::deserialize_inputs_to_cv(
     const std::vector<float*>& dataPointers,
     const std::vector<std::vector<std::int64_t>>& shapes,
     const std::vector<std::string> &data_types,

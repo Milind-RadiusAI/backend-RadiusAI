@@ -79,6 +79,12 @@ public:
     void initialize() {};
     void execute(const std::vector<float*>& dataPointers , const std::vector<std::vector<std::int64_t>>& shapes, const std::vector <std::string>& data_types , std::vector<const void*>& outputPointers,std::vector<std::vector<std::int64_t>>&  output_shapes);
     void profile(std::string name, bool status);
+    void deserialize_inputs_to_cv(
+        const std::vector<float*>& dataPointers,
+        const std::vector<std::vector<std::int64_t>>& shapes,
+        const std::vector<std::string> &data_types,
+        std::vector<cv::Mat> &deserializedDatasets
+    );
 private:
     PipelineConf conf_yaml;
     int64_t img_h;
