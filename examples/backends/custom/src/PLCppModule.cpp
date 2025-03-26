@@ -3,6 +3,40 @@
 #include "utils.h"
 #include <iostream>
 #include <ctime>
+#include <chrono>
+
+void PLCppModule::profile(std::string name, bool status) {
+    if(name == "print") {
+        std::ofstream logFile("/data/repos/profile_projection_logic.txt", std::ios::app);
+        if (logFile.is_open()) {
+            for(const auto &p:profile_info) {
+                std::string log = "";
+                log += p.first + ": ";
+                log += std::to_string(p.second.second - p.second.first) + "ms";
+                logFile << log << std::endl;
+            }
+
+            logFile.close();
+        } else {
+            std::cerr << "Unable to open log file" << std::endl;
+        }
+
+        return;
+    }
+    
+    auto itr = profile_info.find(name);
+    if(itr == profile_info.end()) {
+        profile_info[name] = {0, 0};
+    }
+
+    long long milliseconds_since_epoch = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+
+    if(status == 0) {
+        profile_info[name].first = milliseconds_since_epoch
+    } else {
+        profile_info[name].second = milliseconds_since_epoch
+    }
+}
 
 template<typename T>
 T* copyMatToHeap(const cv::Mat& mat) {
@@ -62,8 +96,10 @@ void deserialize_inputs_to_cv(
 
 void PLCppModule::execute(const std::vector<float*>& dataPointers, const std::vector<std::vector<std::int64_t>>& shapes, const std::vector <std::string>& data_types, std::vector<const void*>& outputPointers, std::vector<std::vector<std::int64_t>>& output_shapes) {
     std::vector<cv::Mat> all_inputs;
+    profile("deserialize_inputs", 0);
     deserialize_inputs_to_cv(dataPointers,shapes,data_types,all_inputs);
-        
+    profile("deserialize_inputs", 1);
+
     int num_images = all_inputs[0].size[0] - 1;
     std::vector<cv::cuda::Stream> streams(num_images);
     std::vector<cv::cuda::GpuMat> images_gpu(num_images);
@@ -84,6 +120,7 @@ void PLCppModule::execute(const std::vector<float*>& dataPointers, const std::ve
     // log += "BATCH: " + std::to_string(num_images) + ", HEIGHT: " + std::to_string(height) + ", WEIGHT: " + std::to_string(width) + ", CHANNELS: " + std::to_string(channels);
     // writeToLog(log);
 
+    profile("start_all_streams", 0);
     for(int i=0;i<num_images;i++) {
         // get single image
         cv::Mat single_image(height, width, CV_8UC(channels), batch_input.ptr<uchar>(i));
@@ -93,7 +130,7 @@ void PLCppModule::execute(const std::vector<float*>& dataPointers, const std::ve
         // print_shape(images_gpu[i], "images_gpu");
 
         // resize
-        cv::cuda::resize(images_gpu[i], resized_images[i], cv::Size(), 0.25, 0.25);
+        cv::cuda::resize(images_gpu[i], resized_images[i], cv::Size(), 0.25, 0.25, cv::INTER_LINEAR, streams[i]);
         // print_shape(resized_images[i], "resized_images");
 
         // print_shape(mask_gpu[i], "mask_gpu");
@@ -118,10 +155,11 @@ void PLCppModule::execute(const std::vector<float*>& dataPointers, const std::ve
         // filter morphology
         filter_morphology->apply(thresh_images_gpu[i], filter_images_gpu[i], streams[i]);
         // print_shape(filter_images_gpu[i], "filter_images_gpu");
-    }
+    } profile("start_all_streams", 1);
 
     std::vector<cv::Mat> results;
-    std::vector<double> countour_areas; 
+    std::vector<double> countour_areas;
+    profile("stream_completion_contour", 0);
     for(int i=0;i<num_images;i++) {
         streams[i].waitForCompletion();
 
@@ -136,13 +174,14 @@ void PLCppModule::execute(const std::vector<float*>& dataPointers, const std::ve
             double area = cv::contourArea(cnt) * 4; // Multiplying by 4 as in Python code
             countour_areas.push_back(area);
         }       
-    }
+    } profile("stream_completion_contour", 1);
 
     double max_area = 0;
     if (!countour_areas.empty()) {
         max_area = *std::max_element(countour_areas.begin(), countour_areas.end());
     }
     
+    profile("output_formatting", 0);
     int sizes[3] = {num_images, (int)img_h/4, (int)img_w/4};
     cv::Mat thresholded_images(3, sizes, results[0].type());
     for(int i=0;i<num_images;i++) {
@@ -164,4 +203,6 @@ void PLCppModule::execute(const std::vector<float*>& dataPointers, const std::ve
     *out_area = max_area;
     outputPointers.push_back(static_cast<const void*>(out_area));
     outputPointers.push_back(copyMatToHeap<uint8_t>(thresholded_images));
+    profile("output_formatting", 1);
+    profile("print", 0);
 }

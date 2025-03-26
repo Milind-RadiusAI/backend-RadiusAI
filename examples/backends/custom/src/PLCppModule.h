@@ -2,6 +2,7 @@
 #define PLCPPMODULE_H
 #include <iostream>
 #include <fstream>
+#include <chrono>
 #include "utils.h"
 #include <opencv2/opencv.hpp>
 #include <opencv2/cudawarping.hpp>
@@ -77,6 +78,7 @@ public:
     };
     void initialize() {};
     void execute(const std::vector<float*>& dataPointers , const std::vector<std::vector<std::int64_t>>& shapes, const std::vector <std::string>& data_types , std::vector<const void*>& outputPointers,std::vector<std::vector<std::int64_t>>&  output_shapes);
+    void profile(std::string name, bool status);
 private:
     PipelineConf conf_yaml;
     int64_t img_h;
@@ -85,6 +87,7 @@ private:
     std::vector<cv::Ptr<cv::cuda::BackgroundSubtractorMOG2>> bg_subs;
     cv::Ptr<cv::cuda::Filter> filter_morphology;
     std::vector<cv::cuda::GpuMat> mask_gpu;
+    std::map<std::string, std::pair<long long int, long long int>> profile_info;
 };
 
 #endif 
