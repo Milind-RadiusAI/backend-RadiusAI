@@ -120,6 +120,7 @@ void PLCppModule::execute(const std::vector<float*>& dataPointers, const std::ve
     std::vector<cv::cuda::GpuMat> images_gpu(num_images);
     std::vector<cv::cuda::GpuMat> images_reformatted(num_images);
     profile("initialize_image_reformatted", 0);
+    writeToLog(std::to_string(img_h) + ", " + std::to_string(img_w));
     for(int i=0;i<num_images;i++) {
         images_reformatted[i] = cv::cuda::GpuMat(img_h, img_w, CV_8UC3);
     } profile("initialize_image_reformatted", 1);
@@ -151,6 +152,7 @@ void PLCppModule::execute(const std::vector<float*>& dataPointers, const std::ve
 
         // convert from HWC -> CHW
         profile("convert_format", 0);
+        writeToLog(std::to_string(images_gpu[i].rows) + ", " + std::to_string(images_gpu[i].cols));
         size_t width = images_gpu[i].cols * images_gpu[i].rows;
         std::vector<cv::cuda::GpuMat> input_channels(3);
         for(int k=0;k<3;k++) {
