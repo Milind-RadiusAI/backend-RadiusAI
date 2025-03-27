@@ -142,7 +142,7 @@ void PLCppModule::execute(const std::vector<float*>& dataPointers, const std::ve
         size_t width = images_gpu[i].cols * images_gpu[i].rows;
         std::vector<cv::cuda::GpuMat> input_channels(3);
         for(int k=0;k<3;k++) {
-            input_channels[i] = cv::cuda::GpuMat(images_gpu[i].rows, images_gpu[i].cols, CV_8U, images_reformatted[i].ptr()[width * k]);
+            input_channels[k] = cv::cuda::GpuMat(images_gpu[i].rows, images_gpu[i].cols, CV_8U, images_reformatted[i].ptr()[width * k]);
         }
         cv::cuda::split(images_gpu[i], input_channels, streams[i]);
 
