@@ -144,7 +144,7 @@ void PLCppModule::execute(const std::vector<float*>& dataPointers, const std::ve
     profile("start_all_streams", 0);
     for(int i=0;i<num_images;i++) {
         // get single image
-        cv::Mat single_image({3, img_h, img_w}, CV_8U, batch_input.ptr<uchar>(i));
+        cv::Mat single_image({channels, height, width}, CV_8U, batch_input.ptr<uchar>(i));
 
         // transfer image to gpu
         images_gpu[i].upload(single_image, streams[i]);    
