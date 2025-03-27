@@ -35,6 +35,16 @@ void PLCppModule::profile(std::string name, bool status) {
         profile_info[name].first = milliseconds_since_epoch;
     } else {
         profile_info[name].second = milliseconds_since_epoch;
+        std::ofstream logFile("/data/repos/profile_projection_logic.txt", std::ios::app);
+        if (logFile.is_open()) {
+            std::string log = "";
+            log += profile_info[name].first + ": ";
+            log += std::to_string(profile_info[name].second.second - profile_info[name].second.first) + "ms";
+            logFile << log << std::endl;
+            logFile.close();
+        } else {
+            std::cerr << "Unable to open log file" << std::endl;
+        }
     }
 }
 
