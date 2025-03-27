@@ -144,7 +144,7 @@ void PLCppModule::execute(const std::vector<float*>& dataPointers, const std::ve
     profile("start_all_streams", 0);
     for(int i=0;i<num_images;i++) {
         // get single image
-        cv::Mat single_image(height, width, CV_8UC(channels), batch_input.ptr<uchar>(i));
+        cv::Mat single_image(CV_8UC(channels), height, width, batch_input.ptr<uchar>(i));
 
         // transfer image to gpu
         images_gpu[i].upload(single_image, streams[i]);    
@@ -154,7 +154,7 @@ void PLCppModule::execute(const std::vector<float*>& dataPointers, const std::ve
         size_t width = img_h * img_w;
         std::vector<cv::cuda::GpuMat> input_channels(3);
         for(int k=0;k<3;k++) {
-            input_channels[k] = cv::cuda::GpuMat(img_h, img_w, CV_8U, images_reformatted[i].ptr()[width * k]);
+            input_channels[k] = cv::cuda::GpuMat(img_h, img_w, CV_8U1, images_reformatted[i].ptr()[width * k]);
         } profile("convert_format", 1);
         cv::cuda::split(images_gpu[i], input_channels, streams[i]);
 
