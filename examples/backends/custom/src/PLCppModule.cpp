@@ -154,12 +154,12 @@ void PLCppModule::execute(const std::vector<float*>& dataPointers, const std::ve
         size_t width = img_h * img_w;
         std::vector<cv::cuda::GpuMat> input_channels(3);
         for(int k=0;k<3;k++) {
-            input_channels[k] = cv::cuda::GpuMat(img_h, img_w, CV_8U, images_reformatted[i].ptr()[width * k]);
+            // input_channels[k] = cv::cuda::GpuMat(img_h, img_w, CV_8U, images_reformatted[i].ptr()[width * k]);
         } profile("convert_format", 1);
-        cv::cuda::split(images_gpu[i], input_channels, streams[i]);
+        // cv::cuda::split(images_gpu[i], input_channels, streams[i]);
 
         // resize
-        cv::cuda::resize(images_reformatted[i], resized_images[i], cv::Size(), 0.25, 0.25, cv::INTER_LINEAR, streams[i]);
+        cv::cuda::resize(images_gpu[i], resized_images[i], cv::Size(), 0.25, 0.25, cv::INTER_LINEAR, streams[i]);
         // print_shape(resized_images[i], "resized_images");
 
         // print_shape(mask_gpu[i], "mask_gpu");
