@@ -98,7 +98,7 @@ void PLCppModule::deserialize_inputs_to_cv(
         profile("chw_read_"+std::to_string(i), 0);
         cv::Mat bchw_mat(cv_dim, cv_shape, cv_type, static_cast<void*>(dataPointers[i]));
         profile("chw_read_"+std::to_string(i), 1);
-        cv::Mat bhwc_mat;
+        // cv::Mat bhwc_mat;
 
         // std::vector<int> order = {0, 2, 3, 1};
 
@@ -133,9 +133,9 @@ void PLCppModule::execute(const std::vector<float*>& dataPointers, const std::ve
     // std::vector<float> contour_areas;
     cv::Mat batch_input = all_inputs[0];
     // int batch_size = batch_input.size[0];
-    int height = batch_input.size[1];
-    int width = batch_input.size[2];
-    int channels = batch_input.size[3];
+    // int height = batch_input.size[1];
+    // int width = batch_input.size[2];
+    // int channels = batch_input.size[3];
 
     // std::string log = "";
     // log += "BATCH: " + std::to_string(num_images) + ", HEIGHT: " + std::to_string(height) + ", WEIGHT: " + std::to_string(width) + ", CHANNELS: " + std::to_string(channels);
@@ -144,22 +144,23 @@ void PLCppModule::execute(const std::vector<float*>& dataPointers, const std::ve
     profile("start_all_streams", 0);
     for(int i=0;i<num_images;i++) {
         // get single image
-        cv::Mat single_image({channels, height, width}, CV_8U, batch_input.ptr<uchar>(i));
+        cv::Mat single_image(3, img_h * img_w, CV_8UC1, batch_input.ptr<uchar>(i));
 
         // transfer image to gpu
         images_gpu[i].upload(single_image, streams[i]);    
         // print_shape(images_gpu[i], "images_gpu");
 
-        // convert from HWC -> CHW
-        // size_t width = img_h * img_w;
-        // std::vector<cv::cuda::GpuMat> input_channels(3);
-        // for(int k=0;k<3;k++) {
-            // input_channels[k] = cv::cuda::GpuMat(img_h, img_w, CV_8U, images_reformatted[i].ptr()[width * k]);
-        // } profile("convert_format", 1);
+        // convert from CHW -> HWC
+        size_t width = img_h * img_w;
+        std::vector<cv::cuda::GpuMat> input_channels(3);
+        for(int k=0;k<3;k++) {
+            input_channels[k] = cv::cuda::GpuMat(img_h, img_w, CV_8UC1, images_gpu[i].data + (width * k));
+        } profile("convert_format", 1);
         // cv::cuda::split(images_gpu[i], input_channels, streams[i]);
+        cv::cuda::merge(input_channels, images_reformatted[i], streams[i]);
 
         // resize
-        cv::cuda::resize(images_gpu[i], resized_images[i], cv::Size(), 0.25, 0.25, cv::INTER_LINEAR, streams[i]);
+        cv::cuda::resize(images_reformatted[i], resized_images[i], cv::Size(), 0.25, 0.25, cv::INTER_LINEAR, streams[i]);
         // print_shape(resized_images[i], "resized_images");
 
         // print_shape(mask_gpu[i], "mask_gpu");
